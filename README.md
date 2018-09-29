@@ -23,7 +23,7 @@ Minimal image files support (PGM/PPM native, other formats invoking imagemagick 
         T operator[](int index) const { return data[index]; }
         T& operator[](int index) { return data[index]; }
 
-        // Conversion from image witha different pixel type
+        // Conversion from image with a different pixel type
         template<typename U>
         Image(const Image<U>& other)
             : w(other.w), h(other.h),
