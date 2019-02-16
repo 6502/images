@@ -81,7 +81,7 @@ Image<unsigned> loadImage<unsigned>(const std::string& fname) {
         FILE *f;
         bool convert;
         F(const std::string& fname) {
-            if (fname.size() > 4 && fname.substr(fname.size()-4) == "ppm") {
+            if (fname.size() > 4 && fname.substr(fname.size()-4) == ".ppm") {
                 convert = false;
                 f = fopen(fname.c_str(), "rb");
             } else {
