@@ -19,7 +19,7 @@ struct Image {
     Image(int w, int h) : w(w), h(h), data(w*h) {}
 
     T operator()(int x, int y) const {
-        return x>=0 && y>=0 && x<w && y<h ? data[y*w+x] : 0;
+        return x>=0 && y>=0 && x<w && y<h ? data[y*w+x] : T();
     }
 
     void operator()(int x, int y, T v) {
