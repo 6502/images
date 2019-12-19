@@ -69,9 +69,9 @@ Image<unsigned char> loadImage<unsigned char>(const std::string& fname) {
         while ((c = fgetc(f)) != EOF && c != '\n') ;
     }
     if (c != EOF) ungetc(c, f);
-    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) ImageError("Not a PGM file");
+    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) throw ImageError("Not a PGM file");
     Image<unsigned char> img(w, h);
-    fread(&img[0], 1, w*h, f);
+    if (fread(&img[0], 1, w*h, f) != (unsigned)w*h) throw ImageError("I/O error loading PGM file");
     return img;
 }
 
@@ -108,7 +108,7 @@ Image<unsigned> loadImage<unsigned>(const std::string& fname) {
     Image<unsigned int> img(w, h);
     std::vector<unsigned char> row(w*3);
     for (int y=0; y<h; y++) {
-        fread(&row[0], 1, w*3, f);
+        if (fread(&row[0], 1, w*3, f) != (unsigned)(w*3)) throw ImageError("I/O error loading PPM file");
         for (int x=0; x<w; x++) {
             img[y*w+x] = row[x*3+2] + (row[x*3+1]<<8) + (row[x*3]<<16);
         }
