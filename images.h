@@ -64,12 +64,16 @@ Image<unsigned char> loadImage<unsigned char>(const std::string& fname) {
     } f(fname);
 
     int w, h;
-    if (fgetc(f) != 'P' || fgetc(f) != '5' || fgetc(f) != '\n') throw ImageError("Not a PGM file");
-    int c; while((c = fgetc(f)) == '#') {
+    if (fgetc(f) != 'P' || fgetc(f) != '5') throw ImageError("Not a PGM file");
+    int c;
+    while ((c = fgetc(f)) != EOF && isspace(c));
+    if (c == EOF) throw ImageError("Not a PGM file");
+    while(c == '#') {
         while ((c = fgetc(f)) != EOF && c != '\n') ;
+        c = fgetc(f);
     }
     if (c != EOF) ungetc(c, f);
-    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) throw ImageError("Not a PGM file");
+    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) throw ImageError("Not a 8bpp-PGM file");
     Image<unsigned char> img(w, h);
     if (fread(&img[0], 1, w*h, f) != (unsigned)w*h) throw ImageError("I/O error loading PGM file");
     return img;
