@@ -63,7 +63,7 @@ Image<unsigned char> loadImage<unsigned char>(const std::string& fname) {
         operator FILE *() { return f; };
     } f(fname);
 
-    int w, h;
+    int w, h, maxv;
     if (fgetc(f) != 'P' || fgetc(f) != '5') throw ImageError("Not a PGM file");
     int c;
     while ((c = fgetc(f)) != EOF && isspace(c));
@@ -73,9 +73,12 @@ Image<unsigned char> loadImage<unsigned char>(const std::string& fname) {
         c = fgetc(f);
     }
     if (c != EOF) ungetc(c, f);
-    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) throw ImageError("Not a 8bpp-PGM file");
+    if (fscanf(f, "%i %i %i%*c", &w, &h, &maxv)!=3 || w<0 || h<0 || maxv>255) {
+        throw ImageError("Not a 8bpp-PGM file");
+    }
     Image<unsigned char> img(w, h);
     if (fread(&img[0], 1, w*h, f) != (unsigned)w*h) throw ImageError("I/O error loading PGM file");
+    if (maxv < 255) for (auto& v : img.data) v = v*255/maxv;
     return img;
 }
 
@@ -102,19 +105,22 @@ Image<unsigned> loadImage<unsigned>(const std::string& fname) {
         }
         operator FILE *() { return f; };
     } f(fname);
-    int w, h;
+    int w, h, maxv;
     if (fgetc(f) != 'P' || fgetc(f) != '6' || fgetc(f) != '\n') throw ImageError("Not a PPM file");
     int c; while((c = fgetc(f)) == '#') {
         while ((c = fgetc(f)) != EOF && c != '\n') ;
     }
     if (c != EOF) ungetc(c, f);
-    if (fscanf(f, "%i %i 255%*c", &w, &h)!=2 || w<0 || h<0) throw ImageError("Not a PPM file");
+    if (fscanf(f, "%i %i %i%*c", &w, &h, &maxv)!=3 || w<0 || h<0 || maxv>255) {
+        throw ImageError("Not a 24bpp PPM file");
+    }
     Image<unsigned int> img(w, h);
     std::vector<unsigned char> row(w*3);
     for (int y=0; y<h; y++) {
         if (fread(&row[0], 1, w*3, f) != (unsigned)(w*3)) throw ImageError("I/O error loading PPM file");
         for (int x=0; x<w; x++) {
-            img[y*w+x] = row[x*3+2] + (row[x*3+1]<<8) + (row[x*3]<<16);
+            int r = row[x*3], g = row[x*3+1], b = row[x*3+2];
+            img[y*w+x] = ((r*255/maxv)<<16) + ((g*255/maxv)<<8) + (b*255/maxv);
         }
     }
     return img;
