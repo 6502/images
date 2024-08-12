@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdlib.h>
 #include <string>
+#include <string.h>
 #include <stdexcept>
 
 struct ImageError : std::runtime_error {
@@ -50,7 +51,7 @@ Image<unsigned char> loadImage<unsigned char>(const std::string& fname) {
                 f = fopen(fname.c_str(), "rb");
             } else {
                 convert = true;
-                f = popen(("convert " + fname + " pgm:-").c_str(), "r");
+                f = popen(("ffmpeg -y -loglevel 0 -i " + fname + " -f image2pipe -vcodec pgm - ").c_str(), "r");
             }
             if (!f) {
                 perror("loadImage<unsigned char>");
@@ -88,12 +89,12 @@ Image<unsigned> loadImage<unsigned>(const std::string& fname) {
         FILE *f;
         bool convert;
         F(const std::string& fname) {
-            if (fname.size() > 4 && fname.substr(fname.size()-4) == ".ppm") {
+            if (fname.size() > 4 && fname.substr(fname.size()-4) == ".pam") {
                 convert = false;
                 f = fopen(fname.c_str(), "rb");
             } else {
                 convert = true;
-                f = popen(("convert " + fname + " ppm:-").c_str(), "r");
+                f = popen(("ffmpeg -y -loglevel 0 -i " + fname + " -f image2pipe -vcodec pam - ").c_str(), "r");
             }
             if (!f) {
                 perror("loadImage<unsigned>");
@@ -105,22 +106,29 @@ Image<unsigned> loadImage<unsigned>(const std::string& fname) {
         }
         operator FILE *() { return f; };
     } f(fname);
-    int w, h, maxv;
-    if (fgetc(f) != 'P' || fgetc(f) != '6' || fgetc(f) != '\n') throw ImageError("Not a PPM file");
-    int c; while((c = fgetc(f)) == '#') {
-        while ((c = fgetc(f)) != EOF && c != '\n') ;
+    int w=-1, h=-1, maxv=-1, depth=-1;
+    if (fgetc(f) != 'P' || fgetc(f) != '7' || fgetc(f) != '\n') throw ImageError("Not a PAM file");
+    char buf[256];
+    while (fgets(buf, 256, f)) {
+        if (strncmp(buf, "WIDTH ", 6) == 0) w = atoi(buf+6);
+        if (strncmp(buf, "HEIGHT ", 7) == 0) h = atoi(buf+7);
+        if (strncmp(buf, "DEPTH ", 6) == 0) depth = atoi(buf+6);
+        if (strncmp(buf, "MAXVAL ", 7) == 0) maxv = atoi(buf+7);
+        if (strncmp(buf, "ENDHDR", 6) == 0) break;
     }
-    if (c != EOF) ungetc(c, f);
-    if (fscanf(f, "%i %i %i%*c", &w, &h, &maxv)!=3 || w<0 || h<0 || maxv>255) {
-        throw ImageError("Not a 24bpp PPM file");
-    }
+    if ((depth != 1 && depth != 3 && depth != 4) || (maxv > 255)) throw ImageError("Not an yu8/rgb24/argb32 image");
     Image<unsigned int> img(w, h);
-    std::vector<unsigned char> row(w*3);
+    std::vector<unsigned char> row(w*depth);
     for (int y=0; y<h; y++) {
-        if (fread(&row[0], 1, w*3, f) != (unsigned)(w*3)) throw ImageError("I/O error loading PPM file");
-        for (int x=0; x<w; x++) {
-            int r = row[x*3], g = row[x*3+1], b = row[x*3+2];
-            img[y*w+x] = ((r*255/maxv)<<16) + ((g*255/maxv)<<8) + (b*255/maxv);
+        if (fread(&row[0], w*depth, 1, f) != 1) throw ImageError("I/O error loading PAM file");
+        if (depth == 1) {
+            for (int x=0; x<w; x++) img[y*w+x] = row[x]*255/maxv * 0x010101 + 0xFF000000;
+        } else {
+            for (int x=0; x<w; x++) {
+                unsigned r = row[x*depth]*255/maxv, g = row[x*depth+1]*255/maxv, b = row[x*depth+2]*255/maxv,
+                         a = (depth == 3) ? 255 : row[x*depth+3]*255/maxv;
+                img[y*w+x] = (a<<24) + (r<<16) + (g<<8) + b;
+            }
         }
     }
     return img;
@@ -140,7 +148,7 @@ void saveImage<unsigned char>(const Image<unsigned char>& img, const std::string
                 f = fopen(fname.c_str(), "wb");
             } else {
                 convert = true;
-                f = popen(("convert pgm:- " + fname).c_str(), "w");
+                f = popen(("ffmpeg -y -loglevel 0 -i - -f image2pipe " + fname).c_str(), "w");
             }
             if (!f) {
                 perror("saveImage<unsigned char>");
@@ -167,7 +175,7 @@ void saveImage<unsigned>(const Image<unsigned>& img, const std::string& fname) {
                 f = fopen(fname.c_str(), "wb");
             } else {
                 convert = true;
-                f = popen(("convert ppm:- " + fname).c_str(), "w");
+                f = popen(("ffmpeg -y -loglevel 0 -i - -f image2pipe " + fname).c_str(), "w");
             }
             if (!f) {
                 perror("saveImage<unsigned>");
