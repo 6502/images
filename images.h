@@ -17,6 +17,7 @@ struct Image {
     int w, h;
     std::vector<T> data;
 
+    Image() : w(0), h(0) {}
     Image(int w, int h) : w(w), h(h), data(w*h) {}
 
     T operator()(int x, int y) const {
